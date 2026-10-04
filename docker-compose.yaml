@@ -124,7 +124,7 @@ services:
   airflow-worker:
     <<: *airflow-common
     container_name: airflow-worker
-    command: celery worker
+    command: celery worker -H worker@%h
     healthcheck:
       test:
         - "CMD-SHELL"

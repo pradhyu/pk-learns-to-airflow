@@ -1,6 +1,6 @@
 # 🌪️ Apache Airflow Starter & Tutorial Suite
 
-> **Comprehensive guide, architecture breakdown, ready-to-run sample DAGs, self-contained ETL examples, and full Docker deployment for Apache Airflow.**
+> **Comprehensive guide, architecture breakdown, ready-to-run sample DAGs, self-contained ETL examples, host CLI tools (`./airflow`, `airflowctl`, `astro`), and full Docker deployment for Apache Airflow.**
 >
 > 📖 **Full Deployment Guide:** See [**`DEPLOYMENT.md`**](file:///Users/pkshrestha/git/airflow/DEPLOYMENT.md) for production hardening, worker scaling, and disaster recovery procedures.
 
@@ -8,14 +8,15 @@
 
 ## 📑 Table of Contents
 - [1. Quickstart with Docker Compose (Recommended)](#1-quickstart-with-docker-compose-recommended)
-- [2. Detailed Deployment Guide (`DEPLOYMENT.md`)](file:///Users/pkshrestha/git/airflow/DEPLOYMENT.md)
+- [2. CLI Tools & Remote Management (`./airflow`, `airflowctl`, `astro`)](#2-cli-tools--remote-management-airflow-airflowctl-astro)
 - [3. What is Apache Airflow?](#3-what-is-apache-airflow)
 - [4. Core Concepts & Architecture](#4-core-concepts--architecture)
-- [5. Standalone ETL Examples (`examples/`)](#5-standalone-etl-examples-examples)
-- [6. Sample DAGs in this Repository (`dags/`)](#6-sample-dags-in-this-repository-dags)
-- [7. Running Airflow Locally with `uv`](#7-running-airflow-locally-with-uv)
-- [8. Testing DAGs via CLI](#8-testing-dags-via-cli)
-- [9. Airflow Best Practices](#9-airflow-best-practices)
+- [5. Web UI Features & Native Dark Mode](#5-web-ui-features--native-dark-mode)
+- [6. Standalone ETL Examples (`examples/`)](#6-standalone-etl-examples-examples)
+- [7. Sample DAGs in this Repository (`dags/`)](#7-sample-dags-in-this-repository-dags)
+- [8. Running Airflow Locally with `uv`](#8-running-airflow-locally-with-uv)
+- [9. Testing DAGs via CLI](#9-testing-dags-via-cli)
+- [10. Airflow Best Practices](#10-airflow-best-practices)
 
 ---
 
@@ -52,16 +53,68 @@ docker compose logs -f airflow-scheduler
 # Check service status
 docker compose ps
 
-# Run Airflow CLI commands inside the container
-docker compose run --rm airflow-cli airflow dags list
-docker compose run --rm airflow-cli airflow dags test 01_taskflow_etl
-
 # Stop the cluster
 ./stop.sh        # or: make down or docker compose down
 
 # Stop and wipe database volumes (clean reset)
 make clean       # or: docker compose down -v
 ```
+
+---
+
+## 2. CLI Tools & Remote Management (`./airflow`, `airflowctl`, `astro`)
+
+Instead of attaching into Docker containers manually (`docker compose exec airflow-webserver bash`), you have multiple streamlined ways to interact with Airflow directly from your host terminal:
+
+### Option A: Native Host Wrapper (`./airflow`) — *Fastest for this repository*
+An executable wrapper located at [`./airflow`](file:///Users/pkshrestha/git/airflow/airflow) that transparently routes any Airflow CLI command into the running webserver container:
+
+```bash
+# List all registered DAGs
+./airflow dags list
+
+# Trigger a DAG run
+./airflow dags trigger 01_taskflow_etl
+
+# Unpause / pause a DAG
+./airflow dags unpause 08_excel_to_sqlite_pipeline
+./airflow dags pause 08_excel_to_sqlite_pipeline
+
+# Test a single task instance directly
+./airflow tasks test 01_taskflow_etl extract_orders 2026-09-18
+
+# Inspect database connectivity & version
+./airflow db check
+./airflow version
+```
+
+### Option B: `airflowctl` (Official Airflow CLI Client)
+`airflowctl` is the official client utility installed on your system (`/usr/local/bin/airflowctl`) designed to interact with local and remote Airflow environments via REST API and configuration profiles:
+
+```bash
+# Verify installation
+airflowctl --version
+
+# View available commands
+airflowctl --help
+```
+
+### Option C: Astronomer CLI (`astro`) — *The Industry Standard for Airflow Dev*
+The **Astronomer CLI** (`astro` `v1.46.0` installed at `/usr/local/bin/astro`) is widely considered the best developer experience tool for Airflow:
+
+```bash
+# Verify installation
+astro version
+```
+
+#### Why use `astro`?
+| Feature | Custom Docker Compose | Astronomer CLI (`astro`) |
+| :--- | :--- | :--- |
+| **Project Bootstrapping** | Manual `docker-compose.yaml` + configs | `astro dev init` generates clean structure |
+| **Startup / Teardown** | `docker compose up -d` / `down` | `astro dev start` / `astro dev stop` |
+| **Hot Reloading** | Mounted volumes | Automatic DAG & dependency live sync |
+| **DAG Parsing / Testing** | Manual CLI testing in container | `astro dev parse` & `astro dev pytest` |
+| **Cloud Deployment** | Custom CI/CD scripts | `astro deploy` (deploys directly to Astronomer Cloud) |
 
 ---
 
@@ -111,7 +164,18 @@ make clean       # or: docker compose down -v
 
 ---
 
-## 5. Standalone ETL Examples (`examples/`)
+## 5. Web UI Features & Native Dark Mode
+
+Airflow **2.10.2** provides a revamped UI experience:
+
+* 🌙 **Native Dark Mode:** Toggle between Light, Dark, and System theme by clicking the Moon/Sun icon in the upper-right corner of the navigation bar at [http://localhost:8080](http://localhost:8080).
+* 📊 **Grid View:** High-level run history matrix with drill-down task logs, details, and rendered templates.
+* 📈 **Graph View:** Real-time visual dependency graph showing task statuses (queued, running, success, failed, upstream_failed).
+* ⚙️ **Admin Controls:** Manage Connections, Variables, Pools, and XComs directly from the UI.
+
+---
+
+## 6. Standalone ETL Examples (`examples/`)
 
 ### 📊 Excel to SQLite Pipeline: [`examples/excel_to_sqlite/`](file:///Users/pkshrestha/git/airflow/examples/excel_to_sqlite)
 A full production-pattern pipeline that extracts multi-sheet Excel files, performs cleanups, currency/date parsing, and data calculations, loads to SQLite with upsert support, and verifies integrity.
@@ -129,7 +193,7 @@ A full production-pattern pipeline that extracts multi-sheet Excel files, perfor
 
 ---
 
-## 6. Sample DAGs in this Repository (`dags/`)
+## 7. Sample DAGs in this Repository (`dags/`)
 
 All sample pipelines are located in [`dags/`](file:///Users/pkshrestha/git/airflow/dags):
 
@@ -138,10 +202,11 @@ All sample pipelines are located in [`dags/`](file:///Users/pkshrestha/git/airfl
 3. [**`03_conditional_branching.py`**](file:///Users/pkshrestha/git/airflow/dags/03_conditional_branching.py): Dynamic Branching (`@task.branch`, TriggerRules).
 4. [**`04_data_quality_sensor.py`**](file:///Users/pkshrestha/git/airflow/dags/04_data_quality_sensor.py): Sensors & schema quality validation.
 5. [**`08_excel_to_sqlite_dag.py`**](file:///Users/pkshrestha/git/airflow/dags/08_excel_to_sqlite_dag.py): Multi-sheet Excel extraction, data cleaning, and SQLite loading with quality assertions.
+   > 💡 **Note on 1M Dataset DAG:** `08_excel_to_sqlite_pipeline` is currently configured with `schedule=None` and paused by default (`is_paused_upon_creation=True`). This allows you to explore lighter sample DAGs first. To run it, unpause and trigger it via `./airflow dags unpause 08_excel_to_sqlite_pipeline` or through the Web UI.
 
 ---
 
-## 7. Running Airflow Locally with `uv`
+## 8. Running Airflow Locally with `uv`
 
 [`uv`](https://github.com/astral-sh/uv) provides instant virtualenv creation and package management if running without Docker.
 
@@ -166,33 +231,33 @@ airflow standalone
 
 ---
 
-## 8. Testing DAGs via CLI (Without Web UI)
+## 9. Testing DAGs via CLI (Without Web UI)
 
 You can instantly test and debug your DAGs from the command line without waiting for the scheduler or starting a webserver:
 
 ```bash
 cd /Users/pkshrestha/git/airflow
-export AIRFLOW_HOME=/Users/pkshrestha/git/airflow
 
 # 1. Verify DAG parsing (checks for syntax/import errors)
-airflow dags list
+./airflow dags list
 
 # 2. Test run an entire DAG end-to-end
-airflow dags test 01_taskflow_etl
+./airflow dags test 01_taskflow_etl
 
 # 3. Test dynamic branching DAG
-airflow dags test 03_conditional_branching
+./airflow dags test 03_conditional_branching
 
 # 4. Test a specific single task inside a DAG
-airflow tasks test 01_taskflow_etl extract_orders 2026-09-18
+./airflow tasks test 01_taskflow_etl extract_orders 2026-09-18
 ```
 
 ---
 
-## 9. Airflow Best Practices
+## 10. Airflow Best Practices
 
 1. **Idempotency:** Designing tasks so that running them multiple times with the same execution date produces the exact same result (critical for retries).
 2. **Use the TaskFlow API for Python:** Prefer `@task` and `@dag` over classic `PythonOperator` for cleaner syntax and automatic XCom serialization.
 3. **Keep Tasks Atomic:** A task should do one discrete job (e.g. Extract, Transform, or Load). If a task fails midway, only that task needs to retry.
 4. **Avoid Heavy Computations in Top-Level Code:** The Airflow scheduler continuously parses DAG files every few seconds. Heavy DB queries or API calls outside of `@task` functions will slow down the scheduler.
 5. **Use Sensors with `mode="reschedule"`:** For long-waiting sensors, use `reschedule` mode to release worker slots while waiting.
+6. **Pass References, Not Giant Payloads, in XCom:** Avoid returning megabytes or gigabytes of raw data (e.g., 1M row dictionaries) directly through XComs. Instead, write data to staging stores (S3, GCS, SQLite, or Parquet) and pass the path/URI via XCom.

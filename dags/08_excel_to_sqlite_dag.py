@@ -30,7 +30,8 @@ SQLITE_DB = DATA_DIR / "sales_warehouse.db"
 @dag(
     dag_id="08_excel_to_sqlite_pipeline",
     start_date=datetime(2026, 1, 1),
-    schedule="@daily",
+    schedule=None,  # Disabled automatic daily schedule (manual trigger only)
+    is_paused_upon_creation=True,
     catchup=False,
     default_args={
         "owner": "data_engineering",
