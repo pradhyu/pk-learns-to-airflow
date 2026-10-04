@@ -1,0 +1,16 @@
+[project]
+name = "excel-to-sqlite-etl"
+version = "0.1.0"
+description = "Self-contained High Performance Parallel Excel to SQLite ETL Pipeline with Data Transformations and Verification"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "pandas>=2.0.0",
+    "python-calamine>=0.2.0",
+    "openpyxl>=3.1.0",
+    "xlsxwriter>=3.1.0",
+    "xlrd>=2.0.0",
+    "tabulate>=0.9.0",
+    "sqlite-utils>=3.35.0",
+    "pyarrow>=14.0.0",
+]
