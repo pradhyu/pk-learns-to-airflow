@@ -3,4 +3,4 @@
 # Transparently forwards any airflow command to the running container
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-exec docker compose -f "${SCRIPT_DIR}/docker-compose.yaml" exec -T airflow-webserver airflow "$@"
+exec docker compose -f "${SCRIPT_DIR}/docker-compose.yaml" exec -T airflow-apiserver airflow "$@"

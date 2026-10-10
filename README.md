@@ -2,7 +2,8 @@
 
 > **Comprehensive guide, architecture breakdown, ready-to-run sample DAGs, self-contained ETL examples, host CLI tools (`./airflow`, `airflowctl`, `astro`), and full Docker deployment for Apache Airflow.**
 >
-> 📖 **Full Deployment Guide:** See [**`DEPLOYMENT.md`**](file:///Users/pkshrestha/git/airflow/DEPLOYMENT.md) for production hardening, worker scaling, and disaster recovery procedures.
+> 📖 **Full Deployment Guide:** See [**`DEPLOYMENT.md`**](file:///home/pkshrestha/git/pk-learns-to-airflow/DEPLOYMENT.md) for production hardening, worker scaling, and disaster recovery procedures.
+> 🐞 **Neovim Live Debugging:** See [**`NEOVIM-SETUP.md`**](file:///home/pkshrestha/git/pk-learns-to-airflow/NEOVIM-SETUP.md) for step-by-step instructions on attaching Neovim (`nvim-dap`) to DAG tasks running inside Docker.
 
 ---
 
@@ -17,6 +18,7 @@
 - [8. Running Airflow Locally with `uv`](#8-running-airflow-locally-with-uv)
 - [9. Testing DAGs via CLI](#9-testing-dags-via-cli)
 - [10. Airflow Best Practices](#10-airflow-best-practices)
+- [11. Neovim Python Debugger Integration (`NEOVIM-SETUP.md`)](#neovim-python-debugger-integration)
 
 ---
 
@@ -201,8 +203,27 @@ All sample pipelines are located in [`dags/`](file:///Users/pkshrestha/git/airfl
 2. [**`02_classic_operators.py`**](file:///Users/pkshrestha/git/airflow/dags/02_classic_operators.py): Classic Operators (`BashOperator`, `PythonOperator`, `EmptyOperator`, Jinja templating).
 3. [**`03_conditional_branching.py`**](file:///Users/pkshrestha/git/airflow/dags/03_conditional_branching.py): Dynamic Branching (`@task.branch`, TriggerRules).
 4. [**`04_data_quality_sensor.py`**](file:///Users/pkshrestha/git/airflow/dags/04_data_quality_sensor.py): Sensors & schema quality validation.
-5. [**`08_excel_to_sqlite_dag.py`**](file:///Users/pkshrestha/git/airflow/dags/08_excel_to_sqlite_dag.py): Multi-sheet Excel extraction, data cleaning, and SQLite loading with quality assertions.
+5. [**`08_excel_to_sqlite_dag.py`**](file:///home/pkshrestha/git/pk-learns-to-airflow/dags/08_excel_to_sqlite_dag.py): Multi-sheet Excel extraction, data cleaning, and SQLite loading with quality assertions.
    > 💡 **Note on 1M Dataset DAG:** `08_excel_to_sqlite_pipeline` is currently configured with `schedule=None` and paused by default (`is_paused_upon_creation=True`). This allows you to explore lighter sample DAGs first. To run it, unpause and trigger it via `./airflow dags unpause 08_excel_to_sqlite_pipeline` or through the Web UI.
+6. [**`09_parquet_staging_etl.py`**](file:///home/pkshrestha/git/pk-learns-to-airflow/dags/09_parquet_staging_etl.py): High-performance intermediate DAG processing using Parquet staging, column projection, and loading into PostgreSQL warehouse tables (`parquet_clean_orders`, `parquet_category_summary`).
+   > 📖 **Full Engineering Spec:** See [**`PARQUET_POSTGRES_SPEC.md`**](file:///home/pkshrestha/git/pk-learns-to-airflow/PARQUET_POSTGRES_SPEC.md) for data contracts, architecture diagrams, and schema definitions.
+
+### 🚀 Triggering the Parquet ➔ PostgreSQL Pipeline
+```bash
+# 1. Unpause and trigger the DAG
+./airflow dags unpause 09_parquet_staging_etl
+./airflow dags trigger 09_parquet_staging_etl
+
+# 2. Monitor execution status
+./airflow dags list-runs -d 09_parquet_staging_etl --state all
+
+# 3. Query the loaded PostgreSQL warehouse tables directly
+docker compose exec postgres psql -U airflow -d airflow -c "
+SELECT category, total_orders, total_net_rev, avg_order_value 
+FROM parquet_category_summary 
+ORDER BY total_net_rev DESC;
+"
+```
 
 ---
 
@@ -261,3 +282,23 @@ cd /Users/pkshrestha/git/airflow
 4. **Avoid Heavy Computations in Top-Level Code:** The Airflow scheduler continuously parses DAG files every few seconds. Heavy DB queries or API calls outside of `@task` functions will slow down the scheduler.
 5. **Use Sensors with `mode="reschedule"`:** For long-waiting sensors, use `reschedule` mode to release worker slots while waiting.
 6. **Pass References, Not Giant Payloads, in XCom:** Avoid returning megabytes or gigabytes of raw data (e.g., 1M row dictionaries) directly through XComs. Instead, write data to staging stores (S3, GCS, SQLite, or Parquet) and pass the path/URI via XCom.
+
+---
+
+## 11. Neovim Python Debugger Integration
+
+You can attach Neovim (`nvim-dap`) to DAG tasks running inside the Docker worker container:
+
+```bash
+# 1. Open DAG file in Neovim and toggle a breakpoint on any line
+nvim dags/09_parquet_staging_etl.py
+# Press <leader>db to set breakpoint
+
+# 2. Trigger task with debug listener enabled
+docker compose exec -e AIRFLOW_DEBUG=true airflow-worker airflow tasks test 09_parquet_staging_etl transform_and_enrich_parquet 2026-10-09
+
+# 3. In Neovim, press <leader>dc and choose "Airflow: Attach to Docker (Port 5678)"
+# Stepping: <leader>dO (Step Over), <leader>di (Step Into), <leader>du (Toggle UI)
+```
+
+📖 **Full Step-by-Step Walkthrough:** See [**`NEOVIM-SETUP.md`**](file:///home/pkshrestha/git/pk-learns-to-airflow/NEOVIM-SETUP.md).
